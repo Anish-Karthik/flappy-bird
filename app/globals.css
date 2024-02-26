@@ -71,7 +71,7 @@
     @apply border-border;
   }
   body {
-    @apply text-foreground h-full w-full min-h-screen flex items-center justify-center;
+    @apply text-foreground h-screen w-full flex items-center justify-center overflow-hidden bg-blue-400 z-50;
   }
   .game {
     

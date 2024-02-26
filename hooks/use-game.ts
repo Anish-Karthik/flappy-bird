@@ -1,3 +1,4 @@
+import { gameSize, rodSize } from "@/app/constants";
 import { create } from "zustand";
 
 type Point = { x: number; y: number };
@@ -38,24 +39,7 @@ const getRectangle = (
   };
 };
 
-const isRectangleIntersected = (
-  coords: { x: number; y: number },
-  size: { x: number; y: number },
-  coords2: { x: number; y: number },
-  size2: { x: number; y: number }
-) => {
-  const { bottomRight: bottomRight1, topLeft: topLeft1 } = getRectangle(
-    coords,
-    size
-  );
-  const { bottomRight: bottomRight2, topLeft: topLeft2 } = getRectangle(
-    coords2,
-    size2
-  );
-  return doOverlap(bottomRight1, topLeft1, bottomRight2, topLeft2);
-};
-
-type GameState = {
+export type GameState = {
   time: number;
   bottom: number;
   top: number;
@@ -66,16 +50,14 @@ type GameState = {
   isGameOver: boolean;
   score: number;
   birdSize: { x: number; y: number };
-  topRodSize: { x: number; y: number };
-  bottomRodSize: { x: number; y: number };
-
   birdCoords: { x: number; y: number };
-  topRodCoords: { x: number; y: number };
-  bottomRodCoords: { x: number; y: number };
 
-  rodMovementInterval: NodeJS.Timeout | null;
+  pipeSize: { x: number; y: number };
+  pipeCoords: { x: number; y: number; offset: number };
+
+  pipeMovementInterval: NodeJS.Timeout | null;
   gravityInterval: NodeJS.Timeout | null;
-  rodRadomizationInterval: NodeJS.Timeout | null;
+  pipeRadomizationInterval: NodeJS.Timeout | null;
   timerInterval: NodeJS.Timeout | null;
 };
 
@@ -84,31 +66,27 @@ type UseGameState = GameState & {
   setTimer: (time: number) => void;
   setIsGameOver: (isGameOver: boolean) => void;
   setScore: (score: number) => void;
-  setBirdSize: (size: { x: number; y: number }) => void;
-  setTopRodSize: (size: { x: number; y: number }) => void;
-  setBottomRodSize: (size: { x: number; y: number }) => void;
 
   moveBirdY: (dy: number) => void;
-  moveRodsX: (dx: number) => void;
 
+  setBirdSize: (size: { x: number; y: number }) => void;
   setBirdCoords: (coords: { x: number; y: number }) => void;
-  setTopRodCoords: (coords: { x: number; y: number }) => void;
-  setBottomRodCoords: (coords: { x: number; y: number }) => void;
+  setPipeSize: (size: { x: number; y: number }) => void;
+  setPipeCoords: (coords: { x: number; y: number; offset: number }) => void;
 
-  setRodMovementInterval: (time: number, dx: number) => void;
+  setPipeMovementInterval: (time: number, dx: number) => void;
   setGravityInterval: (time: number, dy: number) => void;
-  setRodRadomizationInterval: (time: number, dy: number) => void;
 
-  clearRodMovementInterval: () => void;
   clearGravityInterval: () => void;
-  clearRodRadomizationInterval: () => void;
 
   isCrossed: () => boolean;
-  isHittingBottom: () => boolean;
-  resetGame: () => void;
-  initializeGame: (game: Partial<GameState>) => void;
 
+  isHittingBottom: () => boolean;
+  isHittingPipe: () => boolean;
+
+  initializeGame: (game: Partial<GameState>) => void;
   stopGame: () => void;
+  
   setIsStarted: (isStarted: boolean) => void;
   setSpeed: (ySpeed: number) => void;
   setBirdImage: (image: string) => void;
@@ -123,20 +101,20 @@ export const useGameState = create<UseGameState>((set, get) => ({
   isStarted: false,
   score: 0,
   birdSize: { x: 0, y: 0 },
-  topRodSize: { x: 0, y: 0 },
-  bottomRodSize: { x: 0, y: 0 },
+  pipeSize: { x: 0, y: 0 },
 
   birdCoords: { x: 0, y: 0 },
-  topRodCoords: { x: 0, y: 0 },
-  bottomRodCoords: { x: 0, y: 0 },
+  pipeCoords: { x: 0, y: 0, offset: 80 },
 
-  rodMovementInterval: null,
+  pipeMovementInterval: null,
   gravityInterval: null,
-  rodRadomizationInterval: null,
+  pipeRadomizationInterval: null,
   time: 0,
   timerInterval: null,
 
   setBirdImage: (birdImage: string) => set({ birdImage }),
+  setIsGameOver: (isGameOver: boolean) => set({ isGameOver }),
+  initializeGame: (game) => set({ ...game, time: 0, score: 0 }),
   clearTimer: () => {
     set((state) => {
       if (state.timerInterval) {
@@ -170,76 +148,59 @@ export const useGameState = create<UseGameState>((set, get) => ({
       }
       return { ...state, gravityInterval: null, ySpeed: 0 };
     }),
-  clearRodMovementInterval: () => {
-    const { rodMovementInterval } = get();
-    if (rodMovementInterval) {
-      clearInterval(rodMovementInterval);
-    }
-  },
-  clearRodRadomizationInterval: () => {
-    const { rodRadomizationInterval } = get();
-    if (rodRadomizationInterval) {
-      clearInterval(rodRadomizationInterval);
-    }
+  isHittingPipe: () => {
+    const { birdCoords, birdSize, pipeCoords, pipeSize } = get();
+    const { topLeft, bottomRight } = getRectangle(birdCoords, birdSize);
+    return (
+      doOverlap(
+        topLeft,
+        bottomRight,
+        { x: pipeCoords.x, y: pipeCoords.y - 1.5 * pipeCoords.offset },
+        { x: pipeCoords.x + pipeSize.x * 2, y: 0 }
+      ) ||
+      doOverlap(
+        topLeft,
+        bottomRight,
+        { x: pipeCoords.x, y: gameSize.height },
+        {
+          x: pipeCoords.x + pipeSize.x * 2,
+          y: pipeCoords.y + 1.5 * pipeCoords.offset,
+        }
+      )
+    );
   },
 
-  setIsGameOver: (isGameOver: boolean) => set({ isGameOver }),
-  initializeGame: (game) => set(game),
-  resetGame: () => {
-    set({ score: 0 });
-    set({ birdCoords: { x: 0, y: 0 } });
-    set({ topRodCoords: { x: 0, y: 0 } });
-    set({ bottomRodCoords: { x: 0, y: 0 } });
-  },
   setIsStarted: (isStarted: boolean) => set({ isStarted }),
   isCrossed: () => {
-    const {
-      birdCoords,
-      topRodCoords,
-      topRodSize,
-      bottomRodCoords,
-      bottomRodSize,
-      birdSize,
-    } = get();
-
-    const isHittingTopRod = isRectangleIntersected(
-      birdCoords,
-      birdSize,
-      topRodCoords,
-      topRodSize
-    );
-    const isHittingBottomRod = isRectangleIntersected(
-      birdCoords,
-      birdSize,
-      bottomRodCoords,
-      bottomRodSize
-    );
-
-    return isHittingTopRod || isHittingBottomRod;
+    const { birdCoords, pipeSize, pipeCoords } = get();
+    if (birdCoords.x > pipeCoords.x + pipeSize.x * 2) {
+      return true;
+    }
+    return false;
   },
   stopGame: () => {
     const {
-      rodMovementInterval,
+      pipeMovementInterval,
       gravityInterval,
-      rodRadomizationInterval,
+      pipeRadomizationInterval,
       timerInterval,
     } = get();
-    if (rodMovementInterval) {
-      clearInterval(rodMovementInterval);
+    if (pipeMovementInterval) {
+      clearInterval(pipeMovementInterval);
     }
     if (gravityInterval) {
       clearInterval(gravityInterval);
     }
-    if (rodRadomizationInterval) {
-      clearInterval(rodRadomizationInterval);
+    if (pipeRadomizationInterval) {
+      clearInterval(pipeRadomizationInterval);
     }
     if (timerInterval) {
       clearInterval(timerInterval);
     }
     set({
-      rodMovementInterval: null,
+      pipeMovementInterval: null,
       gravityInterval: null,
-      rodRadomizationInterval: null,
+      pipeRadomizationInterval: null,
       timerInterval: null,
       isStarted: false,
       isGameOver: true,
@@ -252,15 +213,12 @@ export const useGameState = create<UseGameState>((set, get) => ({
 
   setScore: (score: number) => set({ score }),
   setBirdSize: (birdSize: { x: number; y: number }) => set({ birdSize }),
-  setTopRodSize: (topRodSize: { x: number; y: number }) => set({ topRodSize }),
-  setBottomRodSize: (bottomRodSize: { x: number; y: number }) =>
-    set({ bottomRodSize }),
+  setPipeSize: (pipeSize: { x: number; y: number }) => set({ pipeSize }),
 
   setBirdCoords: (birdCoords: { x: number; y: number }) => set({ birdCoords }),
-  setTopRodCoords: (topRodCoords: { x: number; y: number }) =>
-    set({ topRodCoords }),
-  setBottomRodCoords: (bottomRodCoords: { x: number; y: number }) =>
-    set({ bottomRodCoords }),
+  setPipeCoords: (pipeCoords: { x: number; y: number; offset: number }) =>
+    set({ pipeCoords }),
+
   setSpeed: (ySpeed: number) => set({ ySpeed }),
   moveBirdY: (birdY: number) => {
     set((state) => {
@@ -271,34 +229,38 @@ export const useGameState = create<UseGameState>((set, get) => ({
       );
       return { birdCoords: { x: state.birdCoords.x, y: newY } };
     });
-    if (get().isHittingBottom() || get().isCrossed()) {
+    if (get().isHittingBottom() || get().isHittingPipe()) {
       console.log("game over");
       get().stopGame();
     }
   },
-  moveRodsX: (rodX: number) => {
-    set((state) => {
-      const newX = state.topRodCoords.x + rodX;
-      return {
-        topRodCoords: { x: newX, y: state.topRodCoords.y },
-        bottomRodCoords: { x: newX, y: state.bottomRodCoords.y },
-      };
-    });
-  },
 
-  setRodMovementInterval: (time: number, dx: number) => {
+  setPipeMovementInterval: (time: number, dx: number) => {
+    if (get().pipeMovementInterval && get().isStarted) {
+      return;
+    }
     set({
-      rodMovementInterval: setInterval(() => {
+      pipeMovementInterval: setInterval(() => {
         set((state) => {
-          const topRodCoords = {
-            x: state.topRodCoords.x - dx,
-            y: state.topRodCoords.y,
+          const pipeCoords = {
+            x:
+              state.pipeCoords.x - dx + state.pipeSize.x * 2 <= 0
+                ? gameSize.width - 20
+                : state.pipeCoords.x - dx,
+            y:
+              state.pipeCoords.x - dx + state.pipeSize.x * 2 <= 0
+                ? rodSize.y +
+                  [
+                    Math.floor(Math.random() * 200),
+                    -Math.floor(Math.random() * 200),
+                  ][state.time % 2]
+                : state.pipeCoords.y,
+            offset: state.pipeCoords.offset,
           };
-          const bottomRodCoords = {
-            x: state.bottomRodCoords.x - dx,
-            y: state.bottomRodCoords.y,
+          return {
+            pipeCoords,
+            score: Math.floor(state.time < 8 ? state.time / 4 : state.time / 7),
           };
-          return { topRodCoords, bottomRodCoords };
         });
       }, time),
     });
@@ -316,22 +278,5 @@ export const useGameState = create<UseGameState>((set, get) => ({
         }, time),
       });
     }
-  },
-  setRodRadomizationInterval: (time: number, dy: number) => {
-    set({
-      rodRadomizationInterval: setInterval(() => {
-        set((state) => {
-          const topRodCoords = {
-            x: state.topRodCoords.x,
-            y: state.topRodCoords.y + dy,
-          };
-          const bottomRodCoords = {
-            x: state.bottomRodCoords.x,
-            y: state.bottomRodCoords.y + dy,
-          };
-          return { topRodCoords, bottomRodCoords };
-        });
-      }, time),
-    });
   },
 }));

@@ -1,18 +1,12 @@
 "use client";
 
+import { initialData } from "@/app/constants";
 import { useGameState } from "@/hooks/use-game";
-import Image from "next/image";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
+import BottomPipe from "./BottomPipe";
+import Score from "./Score";
+import TopPipe from "./TopPipe";
 import Bird from "./bird";
-
-export const birdSize = {
-  width: 50,
-  height: 50,
-};
-export const gameSize = {
-  width: 400,
-  height: 640,
-};
 
 const GameScreen = () => {
   const {
@@ -23,30 +17,19 @@ const GameScreen = () => {
     setIsStarted,
     clearGravityInterval,
     setTimer,
+    setPipeMovementInterval,
   } = useGameState();
 
   const performMovement = useCallback(() => {
     if (!isStarted) {
       initializeGame({
-        birdSize: {
-          x: birdSize.width / 2,
-          y: birdSize.height / 2,
-        },
-        birdImage: "/sprites/bluebird-midflap.png",
-        birdCoords: {
-          x: 200 - birdSize.width / 2,
-          y: 320 + birdSize.height / 2,
-        },
-        bottom: 0,
-        top: gameSize.height,
-        ySpeed: 0,
+        ...initialData,
         isStarted: true,
-        isGameOver: false,
       });
     } else if (isStarted) {
       console.log("jump");
       clearGravityInterval();
-      moveBirdY(150);
+      moveBirdY(120);
       setGravityInterval(100, 1);
     }
   }, [
@@ -58,26 +41,12 @@ const GameScreen = () => {
   ]);
 
   useEffect(() => {
-    initializeGame({
-      birdSize: {
-        x: birdSize.width / 2,
-        y: birdSize.height / 2,
-      },
-      birdImage: "/sprites/bluebird-midflap.png",
-      birdCoords: {
-        x: 200 - birdSize.width / 2,
-        y: 320 + birdSize.height / 2,
-      },
-      bottom: 0,
-      top: gameSize.height,
-      ySpeed: 0,
-      isStarted: false,
-      isGameOver: false,
-    });
+    initializeGame(initialData);
   }, [initializeGame]);
   useEffect(() => {
     if (isStarted) {
-      setGravityInterval(100, 1);
+      setPipeMovementInterval(50, 15);
+      setGravityInterval(100, 0.9);
       setTimer(200);
     }
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -91,13 +60,21 @@ const GameScreen = () => {
       window.onclick = null;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isStarted, performMovement, setGravityInterval, setIsStarted, setTimer]);
+  }, [
+    isStarted,
+    performMovement,
+    setGravityInterval,
+    setIsStarted,
+    setPipeMovementInterval,
+    setTimer,
+  ]);
 
   return (
-    <main className="w-[400px] border-2 border-black mx-auto h-[640px] game relative">
-      <div>
-        <Bird />
-      </div>
+    <main className="w-[400px] border-2 border-black mx-auto h-[640px] game relative overflow-hidden">
+      <Score />
+      <TopPipe />
+      <Bird />
+      <BottomPipe />
     </main>
   );
 };
