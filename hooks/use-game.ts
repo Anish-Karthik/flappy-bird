@@ -40,6 +40,7 @@ const getRectangle = (
 };
 
 export type GameState = {
+  rotate: number;
   time: number;
   bottom: number;
   top: number;
@@ -86,13 +87,14 @@ type UseGameState = GameState & {
 
   initializeGame: (game: Partial<GameState>) => void;
   stopGame: () => void;
-  
+
   setIsStarted: (isStarted: boolean) => void;
   setSpeed: (ySpeed: number) => void;
   setBirdImage: (image: string) => void;
 };
 
 export const useGameState = create<UseGameState>((set, get) => ({
+  rotate: 0,
   bottom: 0,
   top: 0,
   birdImage: "/sprites/bluebird-midflap.png",
@@ -197,6 +199,7 @@ export const useGameState = create<UseGameState>((set, get) => ({
     if (timerInterval) {
       clearInterval(timerInterval);
     }
+    console.log("game stopped");
     set({
       pipeMovementInterval: null,
       gravityInterval: null,
@@ -227,7 +230,10 @@ export const useGameState = create<UseGameState>((set, get) => ({
         state.top,
         state.birdCoords.y + birdY - state.birdSize.y
       );
-      return { birdCoords: { x: state.birdCoords.x, y: newY } };
+      return {
+        birdCoords: { x: state.birdCoords.x, y: newY },
+        rotate: state.ySpeed > 3.3 ? 20 : -20,
+      };
     });
     if (get().isHittingBottom() || get().isHittingPipe()) {
       console.log("game over");
@@ -251,8 +257,8 @@ export const useGameState = create<UseGameState>((set, get) => ({
               state.pipeCoords.x - dx + state.pipeSize.x * 2 <= 0
                 ? rodSize.y +
                   [
-                    Math.floor(Math.random() * 200),
-                    -Math.floor(Math.random() * 200),
+                    Math.floor(Math.random() * 180),
+                    -Math.floor(Math.random() * 180),
                   ][state.time % 2]
                 : state.pipeCoords.y,
             offset: state.pipeCoords.offset,

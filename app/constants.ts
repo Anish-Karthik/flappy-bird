@@ -38,4 +38,5 @@ export const initialData: Partial<GameState> = {
     y: rodSize.y,
     offset: rodSize.offset,
   },
+  rotate: 0,
 };
